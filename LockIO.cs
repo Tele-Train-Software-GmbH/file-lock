@@ -10,7 +10,7 @@ namespace FileLock.FileSys
 
         static LockIO()
         {
-            JsonSerializer = new DataContractJsonSerializer(typeof(FileLockContent), new[] { typeof(FileLockContent) }, int.MaxValue, true, null, true);
+            JsonSerializer = new DataContractJsonSerializer(typeof(FileLockContent), new[] { typeof(FileLockContent) });
         }
 
         public static string GetFilePath(string lockName)
