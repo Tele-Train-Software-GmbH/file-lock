@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Diagnostics;
 using FileLock.FileSys;
+using Serilog;
 
 namespace FileLock
 {
     public class SimpleFileLock : IFileLock
     {
-        protected SimpleFileLock(string lockName, TimeSpan lockTimeout)
+        protected SimpleFileLock(string lockFilePath, TimeSpan lockTimeout)
         {
-            LockName = lockName;
+            LockName = lockFilePath;
+            LockFilePath = lockFilePath;
             LockTimeout = lockTimeout;
         }
 
@@ -27,12 +29,14 @@ namespace FileLock
                 //Someone else owns the lock
                 if (lockContent.GetType() == typeof(OtherProcessOwnsFileLockContent))
                 {
+                    Log.Debug("SimpleFileLock: Could not get the lock, because another process owns the lock.");
                     return false;
                 }
 
                 //the file no longer exists
                 if (lockContent.GetType() == typeof(MissingFileLockContent))
                 {
+                    Log.Debug("SimpleFileLock: The file does not exists.");
                     return AcquireLock();
                 }
 
@@ -42,11 +46,16 @@ namespace FileLock
                 //This lock belongs to this process - we can reacquire the lock
                 if ((lockContent.PID == Process.GetCurrentProcess().Id) && (lockContent.MachineName == Environment.MachineName))
                 {
+                    Log.Debug("SimpleFileLock: It is my lock.");
                     return AcquireLock();
                 }
 
                 //The lock has not timed out - we can't acquire it
-                if (!(Math.Abs((DateTime.Now - lockWriteTime).TotalSeconds) > LockTimeout.TotalSeconds)) return false;
+                if (!(Math.Abs((DateTime.Now - lockWriteTime).TotalSeconds) > LockTimeout.TotalSeconds))
+                {
+                    Log.Debug("SimpleFileLock: Could not get the lock, because the lock has not timed out.");
+                    return false;
+                }
             }
 
             //Acquire the lock
@@ -89,10 +98,7 @@ namespace FileLock
 
         public static SimpleFileLock Create(string lockName, TimeSpan lockTimeout)
         {
-            if (string.IsNullOrEmpty(lockName))
-                throw new ArgumentNullException("lockName", "lockName cannot be null or emtpy.");
-
-            return new SimpleFileLock(lockName, lockTimeout) { LockFilePath = LockIO.GetFilePath(lockName) };
+            return new SimpleFileLock(lockName, lockTimeout);
         }
 
         #endregion

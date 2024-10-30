@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Serilog;
+using System;
 using System.IO;
 using System.Runtime.Serialization.Json;
 
@@ -11,11 +12,6 @@ namespace FileLock.FileSys
         static LockIO()
         {
             JsonSerializer = new DataContractJsonSerializer(typeof(FileLockContent), new[] { typeof(FileLockContent) });
-        }
-
-        public static string GetFilePath(string lockName)
-        {
-            return Path.Combine(Path.GetTempPath(), lockName);
         }
 
         public static bool LockExists(string lockFilePath)
@@ -41,8 +37,9 @@ namespace FileLock.FileSys
             {
                 return new OtherProcessOwnsFileLockContent();
             }
-            catch (Exception) //We have no idea what went wrong - reacquire this lock
+            catch (Exception ex) //We have no idea what went wrong - reacquire this lock
             {
+                Log.Debug(ex, "LockIO: ReadLock unsuccessful.");
                 return new MissingFileLockContent();
             }
         }
@@ -57,8 +54,9 @@ namespace FileLock.FileSys
                 }
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Log.Debug(ex, "LockIO: WriteLock unsuccessful.");
                 return false;
             }
         }
@@ -69,9 +67,9 @@ namespace FileLock.FileSys
             {
                 File.Delete(lockFilePath);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                
+                Log.Debug(ex, "LockIO: DeleteLock unsuccessful.");
             }
         }
     }
