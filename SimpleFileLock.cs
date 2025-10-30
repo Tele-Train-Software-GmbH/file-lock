@@ -1,28 +1,33 @@
-﻿using System;
-using System.Diagnostics;
-using FileLock.FileSys;
+﻿using FileLock.FileSys;
 using Serilog;
+using System;
+using System.Diagnostics;
+using System.IO;
 
 namespace FileLock
 {
     public class SimpleFileLock : IFileLock
     {
-        protected SimpleFileLock(string lockFilePath, TimeSpan lockTimeout)
+        protected SimpleFileLock(string lockFilePath)
         {
             LockName = lockFilePath;
             LockFilePath = lockFilePath;
-            LockTimeout = lockTimeout;
         }
-
-        public TimeSpan LockTimeout { get; private set; }
 
         public string LockName { get; private set; }
 
         private string LockFilePath { get; set; }
+        private FileStream? stream = null;
 
         public bool TryAcquireLock()
         {
-            if (LockIO.LockExists(LockFilePath))
+            if (stream?.CanRead ?? false)
+            {
+                Log.Debug("SimpleFileLock: It is already my lock.");
+                return true;
+            }
+                
+            if (File.Exists(LockFilePath))
             {
                 var lockContent = LockIO.ReadLock(LockFilePath);
 
@@ -39,23 +44,6 @@ namespace FileLock
                     Log.Debug("SimpleFileLock: The file does not exists.");
                     return AcquireLock();
                 }
-
-
-                var lockWriteTime = new DateTime(lockContent.Timestamp);
-
-                //This lock belongs to this process - we can reacquire the lock
-                if ((lockContent.PID == Process.GetCurrentProcess().Id) && (lockContent.MachineName == Environment.MachineName))
-                {
-                    Log.Debug("SimpleFileLock: It is my lock.");
-                    return AcquireLock();
-                }
-
-                //The lock has not timed out - we can't acquire it
-                if (!(Math.Abs((DateTime.Now - lockWriteTime).TotalSeconds) > LockTimeout.TotalSeconds))
-                {
-                    Log.Debug("SimpleFileLock: Could not get the lock, because the lock has not timed out.");
-                    return false;
-                }
             }
 
             //Acquire the lock
@@ -63,14 +51,13 @@ namespace FileLock
             return AcquireLock();
         }
 
-
-
-        public bool ReleaseLock()
+        public void ReleaseLock()
         {
-            //Need to own the lock in order to release it (and we can reacquire the lock inside the current process)
-            if (LockIO.LockExists(LockFilePath) && TryAcquireLock())
+            if(stream?.CanRead ?? false)
+            {
+                stream.Dispose();
                 LockIO.DeleteLock(LockFilePath);
-            return true;
+            }
         }
 
         #region Internal methods
@@ -89,16 +76,22 @@ namespace FileLock
 
         private bool AcquireLock()
         {
-            return LockIO.WriteLock(LockFilePath, CreateLockContent());
+            if (stream?.CanRead ?? false)
+            {
+                Log.Debug("SimpleFileLock: It is already my lock.");
+                return true;
+            }
+
+            return LockIO.WriteLock(LockFilePath, ref stream, CreateLockContent());
         }
 
         #endregion
 
         #region Create methods
 
-        public static SimpleFileLock Create(string lockName, TimeSpan lockTimeout)
+        public static SimpleFileLock Create(string lockName)
         {
-            return new SimpleFileLock(lockName, lockTimeout);
+            return new SimpleFileLock(lockName);
         }
 
         #endregion

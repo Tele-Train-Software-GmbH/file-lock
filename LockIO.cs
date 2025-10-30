@@ -14,11 +14,6 @@ namespace FileLock.FileSys
             JsonSerializer = new DataContractJsonSerializer(typeof(FileLockContent), new[] { typeof(FileLockContent) });
         }
 
-        public static bool LockExists(string lockFilePath)
-        {
-            return File.Exists(lockFilePath);
-        }
-
         public static FileLockContent ReadLock(string lockFilePath)
         {
             try
@@ -39,19 +34,20 @@ namespace FileLock.FileSys
             }
             catch (Exception ex) //We have no idea what went wrong - reacquire this lock
             {
-                Log.Debug(ex, "LockIO: ReadLock unsuccessful.");
+                Log.Warning(ex, "LockIO: ReadLock unsuccessful - {0}", lockFilePath);
                 return new MissingFileLockContent();
             }
         }
 
-        public static bool WriteLock(string lockFilePath, FileLockContent lockContent)
+        public static bool WriteLock(string lockFilePath, ref FileStream stream, FileLockContent lockContent)
         {
             try
             {
-                using (var stream = File.Create(lockFilePath))
-                {
-                    JsonSerializer.WriteObject(stream, lockContent);
-                }
+                stream?.Dispose();
+                stream = new FileStream(lockFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+                JsonSerializer.WriteObject(stream, lockContent);
+                Log.Debug("LockIO: WriteLock successful.");
                 return true;
             }
             catch (Exception ex)

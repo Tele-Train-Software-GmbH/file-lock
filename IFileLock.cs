@@ -6,6 +6,6 @@
 
         bool TryAcquireLock();
 
-        bool ReleaseLock();
+        void ReleaseLock();
     }
 }
