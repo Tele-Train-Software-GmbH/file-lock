@@ -23,7 +23,7 @@ namespace FileLock
         {
             if (stream?.CanRead ?? false)
             {
-                Log.Debug("SimpleFileLock: It is already my lock.");
+                Log.Debug("SimpleFileLock: It is already my lock. " + LockFilePath);
                 return true;
             }
                 
@@ -34,14 +34,14 @@ namespace FileLock
                 //Someone else owns the lock
                 if (lockContent.GetType() == typeof(OtherProcessOwnsFileLockContent))
                 {
-                    Log.Debug("SimpleFileLock: Could not get the lock, because another process owns the lock.");
+                    Log.Debug("SimpleFileLock: Could not get the lock, because another process owns the lock ." + LockFilePath);
                     return false;
                 }
 
                 //the file no longer exists
                 if (lockContent.GetType() == typeof(MissingFileLockContent))
                 {
-                    Log.Debug("SimpleFileLock: The file does not exists.");
+                    Log.Debug("SimpleFileLock: The file does not exists. " + LockFilePath);
                     return AcquireLock();
                 }
             }
@@ -78,7 +78,7 @@ namespace FileLock
         {
             if (stream?.CanRead ?? false)
             {
-                Log.Debug("SimpleFileLock: It is already my lock.");
+                Log.Debug("SimpleFileLock: It is already my lock. " + LockFilePath);
                 return true;
             }
 
